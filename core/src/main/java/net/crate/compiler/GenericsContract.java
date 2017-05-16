@@ -21,8 +21,8 @@ final class GenericsContract {
     }
     ClassName rawNext = model.generatedClass
         .nestedClass(upcase(
-            model.properties.get(i + 1).name()));
-    return parameterizedTypeName(rawNext, typeParams.get(i + 1));
+            model.properties.get(i).name()));
+    return parameterizedTypeName(rawNext, typeParams.get(i));
   }
 
   static List<TypeName> stepTypes(Model model) {

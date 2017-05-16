@@ -2,27 +2,21 @@ package net.crate.examples;
 
 import net.crate.Crate;
 
-import java.util.Optional;
-
 @Crate
-class Animal<E> {
+class Animal {
+
+  private static final Animal_Crate BUILDER =
+      Animal_Crate.builder();
 
   final String name;
   final boolean good;
-  final int legs;
-  final Optional<E> friend;
-  final E harp;
 
-  Animal(
-      Optional<E> friend,
-      String name,
-      boolean good,
-      int legs,
-      E harp) {
+  Animal(String name, boolean good) {
     this.name = name;
     this.good = good;
-    this.legs = legs;
-    this.friend = friend;
-    this.harp = harp;
+  }
+
+  static Animal_Crate builder() {
+    return BUILDER;
   }
 }

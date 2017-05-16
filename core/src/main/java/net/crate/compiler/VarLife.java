@@ -18,9 +18,14 @@ final class VarLife {
   private final List<TypeName> steps;
   private final List<TypeVariableName> typeParameters;
 
+  final List<List<TypeVariableName>> methodParams;
+  final List<List<TypeVariableName>> typeParams;
+
   private VarLife(List<TypeName> steps, List<TypeVariableName> typeParameters) {
     this.steps = steps;
     this.typeParameters = typeParameters;
+    this.typeParams = typeParams();
+    this.methodParams = methodParams();
   }
 
   private static final Supplier<Stream<List<TypeVariableName>>> emptyLists =
@@ -32,7 +37,7 @@ final class VarLife {
     return builder;
   }
 
-  List<List<TypeVariableName>> methodParams() {
+  private List<List<TypeVariableName>> methodParams() {
     List<List<TypeVariableName>> varLifes = varLifes(steps, typeParameters);
     List<List<TypeVariableName>> builder = emptyLists(varLifes.size() - 1);
     builder.get(0).addAll(varLifes.get(0));
@@ -46,7 +51,7 @@ final class VarLife {
     return builder;
   }
 
-  List<List<TypeVariableName>> typeParams() {
+  private List<List<TypeVariableName>> typeParams() {
     List<List<TypeVariableName>> varLifes = accLife(steps, typeParameters);
     varLifes = varLifes.subList(0, varLifes.size() - 2);
     return cons(emptyList(), varLifes);

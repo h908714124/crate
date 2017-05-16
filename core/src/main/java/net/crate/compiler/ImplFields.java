@@ -19,10 +19,17 @@ final class ImplFields {
   private final Model model;
   private final List<List<TypeVariableName>> typeParams;
 
-  ImplFields(Model model,
-             List<List<TypeVariableName>> typeParams) {
+  private ImplFields(
+      Model model,
+      List<List<TypeVariableName>> typeParams) {
     this.model = model;
     this.typeParams = typeParams;
+  }
+
+  static ImplFields create(
+      Model model,
+      List<List<TypeVariableName>> typeParams) {
+    return new ImplFields(model, typeParams);
   }
 
   List<MethodSpec> fields(int i) {
@@ -30,17 +37,18 @@ final class ImplFields {
         emptyList() :
         i == 1 ?
             singletonList(data(i)) :
-            asList(pointer(i), data(i));
+            asList(ref(i), data(i));
   }
 
-  private MethodSpec pointer(int i) {
-    return methodBuilder(
-        "pointer")
+  private MethodSpec ref(int i) {
+    String returnType = upcase(model.properties.get(i - 2).name());
+    return methodBuilder("ref")
         .returns(parameterizedTypeName(
             rawType(model.generatedClass)
-                .nestedClass(upcase(model.properties.get(i - 1).name())),
-            typeParams.get(i - 1)))
+                .nestedClass(returnType),
+            typeParams.get(i - 2)))
         .addModifiers(ABSTRACT)
+        .addModifiers(model.maybePublic())
         .build();
   }
 
@@ -48,6 +56,7 @@ final class ImplFields {
     return methodBuilder("data")
         .returns(model.properties.get(i - 1).type())
         .addModifiers(ABSTRACT)
+        .addModifiers(model.maybePublic())
         .build();
   }
 }

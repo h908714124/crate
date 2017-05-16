@@ -33,24 +33,28 @@ final class OptionalInfo {
     this.wrapped = wrapped;
   }
 
-  static OptionalInfo create(TypeName typeName) {
+  static Optional<OptionalInfo> create(TypeName typeName) {
     if (typeName instanceof ClassName) {
       for (OptionalInfo optionalPrimitive : OPTIONAL_PRIMITIVES) {
         if (optionalPrimitive.wrapper.equals(typeName)) {
-          return optionalPrimitive;
+          return Optional.of(optionalPrimitive);
         }
       }
-      return null;
+      return Optional.empty();
     }
     if (!(typeName instanceof ParameterizedTypeName)) {
-      return null;
+      return Optional.empty();
     }
     ParameterizedTypeName type = (ParameterizedTypeName) typeName;
     if (!type.rawType.equals(OPTIONAL_CLASS)) {
-      return null;
+      return Optional.empty();
     }
-    return new OptionalInfo(OPTIONAL_CLASS,
+    OptionalInfo optionalInfo = new OptionalInfo(OPTIONAL_CLASS,
         type.typeArguments.get(0));
+    if (optionalInfo.isIrregular()) {
+      return Optional.empty();
+    }
+    return Optional.of(optionalInfo);
   }
 
   boolean isOptional() {
@@ -61,9 +65,5 @@ final class OptionalInfo {
     return wrapped instanceof TypeVariableName ||
         isOptional() &&
             rawType(wrapped).equals(OPTIONAL_CLASS);
-  }
-
-  boolean isRegular() {
-    return !isIrregular();
   }
 }
