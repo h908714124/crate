@@ -1,15 +1,14 @@
-package net.crate.something;
+package net.crate.compiler;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-import net.crate.compiler.Model;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static net.crate.something.Util.parameterizedTypeName;
-import static net.crate.something.Util.upcase;
+import static net.crate.compiler.Util.parameterizedTypeName;
+import static net.crate.compiler.Util.upcase;
 
 final class GenericsContract {
 

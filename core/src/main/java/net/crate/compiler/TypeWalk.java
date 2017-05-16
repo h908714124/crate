@@ -1,4 +1,4 @@
-package net.crate.something;
+package net.crate.compiler;
 
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;

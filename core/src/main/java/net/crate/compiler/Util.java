@@ -1,10 +1,11 @@
-package net.crate.something;
+package net.crate.compiler;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
+import net.crate.compiler.TypeWalk;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,7 +87,7 @@ final class Util {
     }
     return toUpperCase(s.charAt(0)) + s.substring(1);
   }
-  
+
   static Collector<CodeBlock, List<CodeBlock>, CodeBlock> joinCodeBlocks(String delimiter) {
     return new Collector<CodeBlock, List<CodeBlock>, CodeBlock>() {
       @Override

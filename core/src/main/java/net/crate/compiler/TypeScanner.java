@@ -55,11 +55,11 @@ final class TypeScanner {
         .filter(constructor -> constructor.getAnnotation(Crate.Constructor.class) != null)
         .collect(Collectors.toList());
     if (constructors.isEmpty()) {
-      throw new ValidationException("Use @Readable.Constructor " +
+      throw new ValidationException("Use @Crate.Constructor " +
           "to mark a constructor", sourceClassElement);
     }
     if (constructors.size() > 1) {
-      throw new ValidationException("Only one @Readable.Constructor " +
+      throw new ValidationException("Only one @Crate.Constructor " +
           "annotation is allowed per class", sourceClassElement);
     }
     return constructors.get(0);

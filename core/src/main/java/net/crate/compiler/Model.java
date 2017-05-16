@@ -15,17 +15,18 @@ import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static net.crate.compiler.CrateProcessor.rawType;
 
-public final class Model {
+final class Model {
 
-  private static final String SUFFIX = "_Builder";
+  private static final String SUFFIX = "_Crate";
   private static final Modifier[] PUBLIC_MODIFIER = {PUBLIC};
   private static final Modifier[] NO_MODIFIERS = new Modifier[0];
 
-  public final ClassName generatedClass;
-  public final TypeElement sourceClassElement;
-  public final TypeName sourceClass;
-  public final List<Property> properties;
-  public final List<TypeName> thrownTypes;
+  private final TypeElement sourceClassElement;
+
+  final ClassName generatedClass;
+  final TypeName sourceClass;
+  final List<Property> properties;
+  final List<TypeName> thrownTypes;
 
   private Model(ClassName generatedClass,
                 TypeElement sourceClassElement) {

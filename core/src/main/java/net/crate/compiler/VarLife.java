@@ -1,4 +1,4 @@
-package net.crate.something;
+package net.crate.compiler;
 
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
@@ -9,9 +9,9 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static java.util.Collections.emptyList;
-import static net.crate.something.Util.cons;
-import static net.crate.something.Util.references;
-import static net.crate.something.Util.reverse;
+import static net.crate.compiler.Util.cons;
+import static net.crate.compiler.Util.references;
+import static net.crate.compiler.Util.reverse;
 
 final class VarLife {
 

@@ -2,21 +2,27 @@ package net.crate.examples;
 
 import net.crate.Crate;
 
-@Crate
-class Animal {
+import java.util.Optional;
 
-  private static final ThreadLocal<Animal_Builder.PerThreadFactory> FACTORY =
-      ThreadLocal.withInitial(Animal_Builder::perThreadFactory);
+@Crate
+class Animal<E> {
 
   final String name;
   final boolean good;
+  final int legs;
+  final Optional<E> friend;
+  final E harp;
 
-  Animal(String name, boolean good) {
+  Animal(
+      Optional<E> friend,
+      String name,
+      boolean good,
+      int legs,
+      E harp) {
     this.name = name;
     this.good = good;
-  }
-
-  Animal_Builder toBuilder() {
-    return FACTORY.get().builder(this);
+    this.legs = legs;
+    this.friend = friend;
+    this.harp = harp;
   }
 }
