@@ -13,17 +13,13 @@ import java.lang.annotation.Target;
  * </p>
  *
  * <p>
- *   <em>Important: The generated code
- *   uses <a href="https://github.com/google/auto">auto-value</a>.
- *   Please ensure that auto-value is configured correctly.</em>
+ *   {@code @AutoCrate} only works for classes that also have an
+ *   {@code @AutoValue} annotation, and are <em>regular</em>
+ *   auto-value classes, not the <em>builder</em> variety.
  * </p>
+ *
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
-public @interface Crate {
-
-  @Target(ElementType.TYPE)
-  @Retention(RetentionPolicy.SOURCE)
-  @interface Constructor {
-  }
+public @interface AutoCrate {
 }

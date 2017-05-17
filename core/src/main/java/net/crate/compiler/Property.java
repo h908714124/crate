@@ -1,14 +1,9 @@
 package net.crate.compiler;
 
-import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.TypeName;
-
 import javax.lang.model.element.VariableElement;
 
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-
-public final class Property {
+final class Property {
 
   private final VariableElement field;
 
@@ -20,16 +15,11 @@ public final class Property {
     return new Property(field);
   }
 
-  public TypeName type() {
+  TypeName type() {
     return TypeName.get(field.asType());
   }
 
-  public String name() {
+  String name() {
     return field.getSimpleName().toString();
-  }
-
-  public FieldSpec.Builder asField() {
-    return FieldSpec.builder(type(),
-        name()).addModifiers(PRIVATE, FINAL);
   }
 }
