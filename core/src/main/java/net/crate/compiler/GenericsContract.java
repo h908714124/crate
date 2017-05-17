@@ -1,14 +1,13 @@
 package net.crate.compiler;
 
+import static net.crate.compiler.Util.parameterizedTypeName;
+import static net.crate.compiler.Util.upcase;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static net.crate.compiler.Util.parameterizedTypeName;
-import static net.crate.compiler.Util.upcase;
 
 final class GenericsContract {
 
@@ -22,7 +21,7 @@ final class GenericsContract {
     ClassName rawNext = model.generatedClass
         .nestedClass(upcase(
             model.properties.get(i).name()));
-    return parameterizedTypeName(rawNext, typeParams.get(i));
+    return parameterizedTypeName(rawNext, typeParams.get(i + 1));
   }
 
   static List<TypeName> stepTypes(Model model) {

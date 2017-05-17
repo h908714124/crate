@@ -1,17 +1,5 @@
 package net.crate.compiler;
 
-import com.squareup.javapoet.ClassName;
-import com.squareup.javapoet.CodeBlock;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
-import com.squareup.javapoet.TypeSpec;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static java.util.Collections.emptyList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
@@ -19,7 +7,20 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.STATIC;
 import static net.crate.compiler.GenericsContract.nextStepType;
 import static net.crate.compiler.Util.joinCodeBlocks;
+import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
+
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 final class GenericsImpl {
 
@@ -56,7 +57,7 @@ final class GenericsImpl {
         .addTypeVariables(varLife.methodParams.get(i))
         .addModifiers(model.maybePublic())
         .returns(nextStepType(model, varLife.typeParams, i))
-        .addCode(getCodeBlock(i, parameter))
+        .addCode(getCodeBlock(i, varLife, parameter))
         .addExceptions(i == model.properties.size() - 1 ?
             model.thrownTypes :
             emptyList()));
@@ -77,17 +78,7 @@ final class GenericsImpl {
                       emptyList()));
             }
         );
-    List<MethodSpec> nextMethods;
-    if (i == 0) {
-      nextMethods = nextMethodBuilders.stream()
-          .map(MethodSpec.Builder::build)
-          .collect(Collectors.toList());
-    } else {
-      nextMethods = nextMethodBuilders.stream()
-          .map(builder -> builder.addModifiers(FINAL))
-          .map(MethodSpec.Builder::build)
-          .collect(Collectors.toList());
-    }
+    List<MethodSpec> nextMethods = nextMethods(i, nextMethodBuilders);
     TypeSpec typeSpec = i == 0 ? null : TypeSpec.classBuilder(
         upcase(model.properties.get(i - 1).name()))
         .addMethods(fields)
@@ -100,12 +91,29 @@ final class GenericsImpl {
     return new StepDef(typeSpec, nextMethods);
   }
 
-  private CodeBlock getCodeBlock(int i, ParameterSpec parameter) {
+  private List<MethodSpec> nextMethods(int i, List<MethodSpec.Builder> nextMethodBuilders) {
+    List<MethodSpec> nextMethods;
+    if (i == 0) {
+      nextMethods = nextMethodBuilders.stream()
+          .map(MethodSpec.Builder::build)
+          .collect(Collectors.toList());
+    } else {
+      nextMethods = nextMethodBuilders.stream()
+          .map(builder -> builder.addModifiers(FINAL))
+          .map(MethodSpec.Builder::build)
+          .collect(Collectors.toList());
+    }
+    return nextMethods;
+  }
+
+  private CodeBlock getCodeBlock(int i, VarLife varLife, ParameterSpec parameter) {
     if (i == model.properties.size() - 1) {
       return fullInvoke();
     }
-    ClassName next = model.generatedClass.peerClass(
-        "AutoValue_" + model.generatedClass.simpleName() + "_" + upcase(model.properties.get(i).name()));
+    TypeName next = parameterizedTypeName(model.generatedClass.peerClass(
+        "AutoValue_" + model.generatedClass.simpleName() + "_" +
+            upcase(model.properties.get(i).name())),
+        varLife.typeParams.get(i + 1));
     if (i == 0) {
       return CodeBlock.builder()
           .addStatement("return new $T($N)", next, parameter)

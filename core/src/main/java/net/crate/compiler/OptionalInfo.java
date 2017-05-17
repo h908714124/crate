@@ -3,16 +3,12 @@ package net.crate.compiler;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import com.squareup.javapoet.TypeVariableName;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-
-import static net.crate.compiler.CrateProcessor.rawType;
 
 final class OptionalInfo {
 
@@ -51,19 +47,10 @@ final class OptionalInfo {
     }
     OptionalInfo optionalInfo = new OptionalInfo(OPTIONAL_CLASS,
         type.typeArguments.get(0));
-    if (optionalInfo.isIrregular()) {
-      return Optional.empty();
-    }
     return Optional.of(optionalInfo);
   }
 
   boolean isOptional() {
     return wrapper.equals(OPTIONAL_CLASS);
-  }
-
-  private boolean isIrregular() {
-    return wrapped instanceof TypeVariableName ||
-        isOptional() &&
-            rawType(wrapped).equals(OPTIONAL_CLASS);
   }
 }

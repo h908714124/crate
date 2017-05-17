@@ -1,19 +1,18 @@
 package net.crate.compiler;
 
-import com.squareup.javapoet.AnnotationSpec;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.TypeVariableName;
-
-import javax.annotation.Generated;
-import java.util.List;
-
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 import static net.crate.compiler.CrateProcessor.rawType;
 import static net.crate.compiler.GenericsContract.stepTypes;
+
+import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
+import java.util.List;
+import javax.annotation.Generated;
 
 final class Analyser {
 
@@ -34,7 +33,6 @@ final class Analyser {
         .addModifiers(FINAL)
         .addModifiers(model.maybePublic())
         .addMethod(constructorBuilder().addModifiers(PRIVATE).build())
-        .addTypeVariables(model.typevars())
         .addAnnotation(AnnotationSpec.builder(Generated.class)
             .addMember("value", "$S",
                 CrateProcessor.class.getCanonicalName())
