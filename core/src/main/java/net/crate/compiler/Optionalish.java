@@ -3,6 +3,7 @@ package net.crate.compiler;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -10,28 +11,28 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-final class OptionalInfo {
+final class Optionalish {
 
   private static final ClassName OPTIONAL_CLASS =
       ClassName.get(Optional.class);
 
-  private static final List<OptionalInfo> OPTIONAL_PRIMITIVES =
+  private static final List<Optionalish> OPTIONAL_PRIMITIVES =
       Arrays.asList(
-          new OptionalInfo(ClassName.get(OptionalInt.class), TypeName.INT),
-          new OptionalInfo(ClassName.get(OptionalDouble.class), TypeName.DOUBLE),
-          new OptionalInfo(ClassName.get(OptionalLong.class), TypeName.LONG));
+          new Optionalish(ClassName.get(OptionalInt.class), TypeName.INT),
+          new Optionalish(ClassName.get(OptionalDouble.class), TypeName.DOUBLE),
+          new Optionalish(ClassName.get(OptionalLong.class), TypeName.LONG));
 
   final ClassName wrapper;
   final TypeName wrapped;
 
-  private OptionalInfo(ClassName wrapper, TypeName wrapped) {
+  private Optionalish(ClassName wrapper, TypeName wrapped) {
     this.wrapper = wrapper;
     this.wrapped = wrapped;
   }
 
-  static Optional<OptionalInfo> create(TypeName typeName) {
+  static Optional<Optionalish> create(TypeName typeName) {
     if (typeName instanceof ClassName) {
-      for (OptionalInfo optionalPrimitive : OPTIONAL_PRIMITIVES) {
+      for (Optionalish optionalPrimitive : OPTIONAL_PRIMITIVES) {
         if (optionalPrimitive.wrapper.equals(typeName)) {
           return Optional.of(optionalPrimitive);
         }
@@ -45,9 +46,9 @@ final class OptionalInfo {
     if (!type.rawType.equals(OPTIONAL_CLASS)) {
       return Optional.empty();
     }
-    OptionalInfo optionalInfo = new OptionalInfo(OPTIONAL_CLASS,
+    Optionalish optionalish = new Optionalish(OPTIONAL_CLASS,
         type.typeArguments.get(0));
-    return Optional.of(optionalInfo);
+    return Optional.of(optionalish);
   }
 
   boolean isOptional() {

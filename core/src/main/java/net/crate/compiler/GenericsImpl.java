@@ -61,10 +61,10 @@ final class GenericsImpl {
         .addExceptions(i == model.properties.size() - 1 ?
             model.thrownTypes :
             emptyList()));
-    OptionalInfo.create(model.properties.get(i).type())
-        .ifPresent(optionalInfo -> {
+    Optionalish.create(model.properties.get(i).type())
+        .ifPresent(optionalish -> {
               ParameterSpec wrappedParameter = ParameterSpec.builder(
-                  optionalInfo.wrapped,
+                  optionalish.wrapped,
                   model.properties.get(i).name()).build();
               nextMethodBuilders.add(methodBuilder(
                   model.properties.get(i).name())
@@ -72,7 +72,7 @@ final class GenericsImpl {
                   .addTypeVariables(varLife.methodParams.get(i))
                   .addModifiers(model.maybePublic())
                   .returns(nextStepType(model, varLife.typeParams, i))
-                  .addCode(getOptionalCodeBlock(i, wrappedParameter, optionalInfo))
+                  .addCode(getOptionalCodeBlock(i, wrappedParameter, optionalish))
                   .addExceptions(i == model.properties.size() - 1 ?
                       model.thrownTypes :
                       emptyList()));
@@ -125,19 +125,19 @@ final class GenericsImpl {
   }
 
   private CodeBlock getOptionalCodeBlock(
-      int i, ParameterSpec parameter, OptionalInfo optionalInfo) {
+      int i, ParameterSpec parameter, Optionalish optionalish) {
     if (i == model.properties.size() - 1) {
       return fullInvoke();
     }
     ClassName next = model.generatedClass.peerClass(
         "AutoValue_" + model.generatedClass.simpleName() + "_" + upcase(model.properties.get(i).name()));
     CodeBlock.Builder parameterLiteral = CodeBlock.builder();
-    if (optionalInfo.isOptional()) {
+    if (optionalish.isOptional()) {
       parameterLiteral.add("$T.ofNullable($N)",
           Optional.class, parameter);
     } else {
       parameterLiteral.add("$T.of($N)",
-          optionalInfo.wrapper, parameter);
+          optionalish.wrapper, parameter);
     }
     if (i == 0) {
       return CodeBlock.builder()
