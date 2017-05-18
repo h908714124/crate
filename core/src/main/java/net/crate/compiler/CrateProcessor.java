@@ -1,14 +1,21 @@
 package net.crate.compiler;
 
-import static java.util.stream.Collectors.toList;
-import static javax.lang.model.util.ElementFilter.typesIn;
-import static javax.tools.Diagnostic.Kind.ERROR;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
+import net.crate.AutoCrate;
+import net.crate.Crate;
+
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -19,15 +26,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
-import net.crate.AutoCrate;
-import net.crate.Crate;
+
+import static java.util.stream.Collectors.toList;
+import static javax.lang.model.util.ElementFilter.typesIn;
+import static javax.tools.Diagnostic.Kind.ERROR;
 
 public final class CrateProcessor extends AbstractProcessor {
 
@@ -36,6 +38,7 @@ public final class CrateProcessor extends AbstractProcessor {
   private static final String SUFFIX = "_Crate";
 
   private final Set<String> deferredTypeNames = new HashSet<>();
+  private final Set<String> done = new HashSet<>();
 
   @Override
   public Set<String> getSupportedAnnotationTypes() {
@@ -53,8 +56,8 @@ public final class CrateProcessor extends AbstractProcessor {
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
     try {
-      processCrate(env);
-      processAutoCrate(env);
+      processCrates(env);
+      processAutoCrates(env);
     } catch (ValidationException e) {
       processingEnv.getMessager().printMessage(
           ERROR, e.getMessage(), e.about);
@@ -66,20 +69,25 @@ public final class CrateProcessor extends AbstractProcessor {
     return false;
   }
 
-  private void processCrate(RoundEnvironment env) throws IOException {
+  private void processCrates(RoundEnvironment env) throws IOException {
     Set<TypeElement> typeElements =
         typesIn(env.getElementsAnnotatedWith(Crate.class));
     for (TypeElement sourceClassElement : typeElements) {
+      String key = sourceClassElement.getQualifiedName().toString();
+      if (done.contains(key)) {
+        continue;
+      }
       if (sourceClassElement.getAnnotation(AutoCrate.class) != null) {
         throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
       }
       Model model = Model.create(sourceClassElement, cratePeer(sourceClassElement));
       TypeSpec typeSpec = Analyser.create(model).analyse();
       write(rawType(model.generatedClass), typeSpec);
+      done.add(key);
     }
   }
 
-  private void processAutoCrate(RoundEnvironment env) throws IOException {
+  private void processAutoCrates(RoundEnvironment env) throws IOException {
     List<TypeElement> deferredTypes = deferredTypeNames.stream()
         .map(name -> processingEnv.getElementUtils().getTypeElement(name))
         .collect(toList());
@@ -100,6 +108,10 @@ public final class CrateProcessor extends AbstractProcessor {
     deferredTypeNames.clear();
 
     for (TypeElement sourceClassElement : types) {
+      String key = sourceClassElement.getQualifiedName().toString();
+      if (done.contains(key)) {
+        continue;
+      }
       if (sourceClassElement.getAnnotation(Crate.class) != null) {
         throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
       }
@@ -114,6 +126,7 @@ public final class CrateProcessor extends AbstractProcessor {
       Model model = Model.create(avType, cratePeer(sourceClassElement));
       TypeSpec typeSpec = Analyser.create(model).analyse();
       write(rawType(model.generatedClass), typeSpec);
+      done.add(key);
     }
   }
 
@@ -136,6 +149,12 @@ public final class CrateProcessor extends AbstractProcessor {
   }
 
   static ClassName rawType(TypeName typeName) {
+    if (typeName instanceof TypeVariableName) {
+      return TypeName.OBJECT;
+    }
+    if (typeName.getClass().equals(TypeName.class)) {
+      return TypeName.OBJECT;
+    }
     if (typeName instanceof ParameterizedTypeName) {
       return ((ParameterizedTypeName) typeName).rawType;
     }
