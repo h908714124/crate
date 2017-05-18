@@ -5,7 +5,6 @@ import static java.util.Collections.emptyList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.STATIC;
-import static net.crate.compiler.GenericsContract.nextStepType;
 import static net.crate.compiler.Util.joinCodeBlocks;
 import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
@@ -18,14 +17,15 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.lang.model.element.Modifier;
 
 final class GenericsImpl {
 
   private static final ClassName AUTO_VALUE = ClassName.get(
       "com.google.auto.value", "AutoValue");
+  private static final Modifier[] NO_MODIFIERS = new Modifier[0];
+  private static final Modifier[] ONLY_FINAL = {FINAL};
 
   private final Model model;
 
@@ -33,56 +33,29 @@ final class GenericsImpl {
     this.model = model;
   }
 
-  List<StepDef> stepImpls(VarLife varLife) {
+  List<StepDef> stepImpls() {
     List<StepDef> builder = new ArrayList<>(model.properties.size());
-    ImplFields implFields = ImplFields.create(model, varLife.typeParams);
+    ImplFields implFields = ImplFields.create(model);
     for (int i = 0; i < model.properties.size(); i++) {
-      builder.add(stepDef(implFields, varLife, i));
+      builder.add(stepDef(implFields, i));
     }
     return builder;
   }
 
   private StepDef stepDef(
       ImplFields implFields,
-      VarLife varLife,
       int i) {
-    ParameterSpec parameter = ParameterSpec.builder(
-        model.properties.get(i).type(),
-        model.properties.get(i).name()).build();
     List<MethodSpec> fields = implFields.fields(i);
-    List<MethodSpec.Builder> nextMethodBuilders = new ArrayList<>();
-    nextMethodBuilders.add(methodBuilder(
-        model.properties.get(i).name())
-        .addParameter(parameter)
-        .addTypeVariables(varLife.methodParams.get(i))
-        .addModifiers(model.maybePublic())
-        .returns(nextStepType(model, varLife.typeParams, i))
-        .addCode(getCodeBlock(i, varLife, parameter))
-        .addExceptions(i == model.properties.size() - 1 ?
-            model.thrownTypes :
-            emptyList()));
-    Optionalish.create(model.properties.get(i).type())
-        .ifPresent(optionalish -> {
-              ParameterSpec wrappedParameter = ParameterSpec.builder(
-                  optionalish.wrapped,
-                  model.properties.get(i).name()).build();
-              nextMethodBuilders.add(methodBuilder(
-                  model.properties.get(i).name())
-                  .addParameter(wrappedParameter)
-                  .addTypeVariables(varLife.methodParams.get(i))
-                  .addModifiers(model.maybePublic())
-                  .returns(nextStepType(model, varLife.typeParams, i))
-                  .addCode(getOptionalCodeBlock(i, wrappedParameter, optionalish))
-                  .addExceptions(i == model.properties.size() - 1 ?
-                      model.thrownTypes :
-                      emptyList()));
-            }
+    List<MethodSpec> nextMethods = new ArrayList<>(2);
+    nextMethods.add(nextMethod(i));
+    model.properties.get(i).optionalish()
+        .ifPresent(optionalish -> nextMethods.add(
+            convenienceNextMethod(i, optionalish))
         );
-    List<MethodSpec> nextMethods = nextMethods(i, nextMethodBuilders);
     TypeSpec typeSpec = i == 0 ? null : TypeSpec.classBuilder(
         upcase(model.properties.get(i - 1).name()))
         .addMethods(fields)
-        .addTypeVariables(varLife.typeParams.get(i))
+        .addTypeVariables(model.varLife.typeParams.get(i - 1))
         .addMethods(nextMethods)
         .addAnnotation(AUTO_VALUE)
         .addModifiers(ABSTRACT, STATIC)
@@ -91,71 +64,95 @@ final class GenericsImpl {
     return new StepDef(typeSpec, nextMethods);
   }
 
-  private List<MethodSpec> nextMethods(int i, List<MethodSpec.Builder> nextMethodBuilders) {
-    List<MethodSpec> nextMethods;
-    if (i == 0) {
-      nextMethods = nextMethodBuilders.stream()
-          .map(MethodSpec.Builder::build)
-          .collect(Collectors.toList());
-    } else {
-      nextMethods = nextMethodBuilders.stream()
-          .map(builder -> builder.addModifiers(FINAL))
-          .map(MethodSpec.Builder::build)
-          .collect(Collectors.toList());
-    }
-    return nextMethods;
+  private MethodSpec nextMethod(int i) {
+    ParameterSpec parameter = ParameterSpec.builder(
+        model.properties.get(i).type(),
+        model.properties.get(i).name()).build();
+    return methodBuilder(
+        model.properties.get(i).name())
+        .addParameter(parameter)
+        .addTypeVariables(model.varLife.methodParams.get(i))
+        .addModifiers(model.maybePublic())
+        .returns(nextStepType(i))
+        .addCode(nextBlock(i, parameter))
+        .addModifiers(maybeFinal(i))
+        .addExceptions(i == model.properties.size() - 1 ?
+            model.thrownTypes :
+            emptyList())
+        .build();
   }
 
-  private CodeBlock getCodeBlock(int i, VarLife varLife, ParameterSpec parameter) {
+  private MethodSpec convenienceNextMethod(
+      int i, Optionalish optionalish) {
+    ParameterSpec parameter = ParameterSpec.builder(
+        optionalish.wrapped,
+        model.properties.get(i).name()).build();
+    return methodBuilder(
+        model.properties.get(i).name())
+        .addParameter(parameter)
+        .addTypeVariables(model.varLife.methodParams.get(i))
+        .addModifiers(model.maybePublic())
+        .returns(nextStepType(i))
+        .addCode(convenienceNextBlock(i, parameter, optionalish))
+        .addExceptions(i == model.properties.size() - 1 ?
+            model.thrownTypes :
+            emptyList())
+        .build();
+  }
+
+  private TypeName nextStepType(int i) {
     if (i == model.properties.size() - 1) {
-      return fullInvoke();
+      return model.sourceClass();
+    }
+    ClassName rawNext = model.generatedClass
+        .nestedClass(upcase(
+            model.properties.get(i).name()));
+    return parameterizedTypeName(rawNext, model.varLife.typeParams.get(i));
+  }
+
+  private CodeBlock nextBlock(int i, ParameterSpec parameter) {
+    if (i == model.properties.size() - 1) {
+      return constructorInvocation();
     }
     TypeName next = parameterizedTypeName(model.generatedClass.peerClass(
         "AutoValue_" + model.generatedClass.simpleName() + "_" +
             upcase(model.properties.get(i).name())),
-        varLife.typeParams.get(i + 1));
-    if (i == 0) {
-      return CodeBlock.builder()
-          .addStatement("return new $T($N)", next, parameter)
-          .build();
-    }
-    return CodeBlock.builder()
-        .addStatement("return new $T(this, $N)", next, parameter)
-        .build();
+        model.varLife.typeParams.get(i));
+    return i == 0 ?
+        CodeBlock.builder()
+            .addStatement("return new $T($N)", next, parameter)
+            .build() :
+        CodeBlock.builder()
+            .addStatement("return new $T(this, $N)", next, parameter)
+            .build();
   }
 
-  private CodeBlock getOptionalCodeBlock(
+  private CodeBlock convenienceNextBlock(
       int i, ParameterSpec parameter, Optionalish optionalish) {
     if (i == model.properties.size() - 1) {
-      return fullInvoke();
+      return constructorInvocation();
     }
     ClassName next = model.generatedClass.peerClass(
-        "AutoValue_" + model.generatedClass.simpleName() + "_" + upcase(model.properties.get(i).name()));
-    CodeBlock.Builder parameterLiteral = CodeBlock.builder();
-    if (optionalish.isOptional()) {
-      parameterLiteral.add("$T.ofNullable($N)",
-          Optional.class, parameter);
-    } else {
-      parameterLiteral.add("$T.of($N)",
-          optionalish.wrapper, parameter);
-    }
-    if (i == 0) {
-      return CodeBlock.builder()
-          .addStatement("return new $T($L)", next, parameterLiteral.build())
-          .build();
-    }
-    return CodeBlock.builder()
-        .addStatement("return new $T(this, $L)", next, parameterLiteral.build())
-        .build();
+        "AutoValue_" + model.generatedClass.simpleName() + "_" +
+            upcase(model.properties.get(i).name()));
+    return i == 0 ?
+        CodeBlock.builder()
+            .addStatement("return new $T($T.$L($N))",
+                next, optionalish.wrapper, optionalish.ofLiteral(), parameter)
+            .build() :
+        CodeBlock.builder()
+            .addStatement("return new $T(this, $T.$L($N))",
+                next, optionalish.wrapper, optionalish.ofLiteral(), parameter)
+            .build();
   }
 
-  private CodeBlock fullInvoke() {
+  private CodeBlock constructorInvocation() {
     CodeBlock invoke = IntStream.range(0, model.properties.size())
         .mapToObj(this::invokeFn)
         .collect(joinCodeBlocks(",\n"));
     return CodeBlock.builder().addStatement(
-        "return new $T(\n$L)",
-        model.sourceClass, invoke).build();
+        "return new $T(\n$L)", model.targetClass, invoke)
+        .build();
   }
 
   private CodeBlock invokeFn(int i) {
@@ -168,7 +165,11 @@ final class GenericsImpl {
     for (int j = model.properties.size() - 3; j >= i; j--) {
       block.add("$L().", "ref");
     }
-    block.add("$L()", "data");
+    block.add("$L()", "get");
     return block.build();
+  }
+
+  private Modifier[] maybeFinal(int i) {
+    return i == 0 ? NO_MODIFIERS : ONLY_FINAL;
   }
 }

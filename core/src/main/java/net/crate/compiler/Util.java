@@ -1,12 +1,14 @@
 package net.crate.compiler;
 
+import static java.lang.Character.isUpperCase;
+import static java.lang.Character.toUpperCase;
+import static java.util.Collections.emptySet;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeVariableName;
-import net.crate.compiler.TypeWalk;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,21 +19,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 
-import static java.lang.Character.isUpperCase;
-import static java.lang.Character.toUpperCase;
-import static java.util.Collections.emptySet;
-
 final class Util {
 
-
   private static final CodeBlock emptyCodeBlock = CodeBlock.of("");
-
-  static <P> List<P> cons(P first, List<? extends P> list) {
-    List<P> builder = new ArrayList<>(list.size() + 1);
-    builder.add(first);
-    builder.addAll(list);
-    return builder;
-  }
 
   static boolean references(TypeName type, TypeVariableName test) {
     if (!maybeTypevars(type)) {
@@ -81,7 +71,7 @@ final class Util {
         typeVars.toArray(new TypeVariableName[typeVars.size()]));
   }
 
-  public static String upcase(String s) {
+  static String upcase(String s) {
     if (s.isEmpty() || isUpperCase(s.charAt(0))) {
       return s;
     }

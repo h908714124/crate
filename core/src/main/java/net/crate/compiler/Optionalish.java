@@ -54,4 +54,8 @@ final class Optionalish {
   boolean isOptional() {
     return wrapper.equals(OPTIONAL_CLASS);
   }
+
+  String ofLiteral() {
+    return isOptional() ? "ofNullable" : "of";
+  }
 }
