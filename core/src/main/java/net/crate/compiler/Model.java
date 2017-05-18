@@ -61,7 +61,7 @@ final class Model {
   }
 
   private boolean isPublic() {
-    return targetClassElement.getModifiers().contains(PUBLIC);
+    return sourceClassElement.getModifiers().contains(PUBLIC);
   }
 
   Modifier[] maybePublic() {

@@ -30,6 +30,9 @@ final class VarLife {
   static VarLife create(
       List<TypeVariableName> typeParameters,
       List<TypeName> steps) {
+    if (steps.size() <= 1) {
+      throw new AssertionError();
+    }
     return new VarLife(
         typeParams(steps, typeParameters),
         methodParams(steps, typeParameters));

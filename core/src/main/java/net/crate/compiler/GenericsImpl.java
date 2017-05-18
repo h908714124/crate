@@ -130,7 +130,13 @@ final class GenericsImpl {
   private CodeBlock convenienceNextBlock(
       int i, ParameterSpec parameter, Optionalish optionalish) {
     if (i == model.properties.size() - 1) {
-      return constructorInvocation();
+      return CodeBlock.builder()
+          .addStatement("return $L($T.$L($N))",
+              model.properties.get(i).name(),
+              optionalish.wrapper,
+              optionalish.ofLiteral(),
+              parameter)
+          .build();
     }
     ClassName next = model.generatedClass.peerClass(
         "AutoValue_" + model.generatedClass.simpleName() + "_" +
@@ -138,11 +144,17 @@ final class GenericsImpl {
     return i == 0 ?
         CodeBlock.builder()
             .addStatement("return new $T($T.$L($N))",
-                next, optionalish.wrapper, optionalish.ofLiteral(), parameter)
+                next,
+                optionalish.wrapper,
+                optionalish.ofLiteral(),
+                parameter)
             .build() :
         CodeBlock.builder()
             .addStatement("return new $T(this, $T.$L($N))",
-                next, optionalish.wrapper, optionalish.ofLiteral(), parameter)
+                next,
+                optionalish.wrapper,
+                optionalish.ofLiteral(),
+                parameter)
             .build();
   }
 

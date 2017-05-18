@@ -3,7 +3,6 @@ package net.crate.compiler;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;

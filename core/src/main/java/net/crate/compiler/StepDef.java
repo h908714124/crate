@@ -2,7 +2,6 @@ package net.crate.compiler;
 
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
-
 import java.util.List;
 
 final class StepDef {

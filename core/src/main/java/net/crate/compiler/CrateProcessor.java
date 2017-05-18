@@ -9,6 +9,7 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.TypeVariableName;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -142,6 +143,12 @@ public final class CrateProcessor extends AbstractProcessor {
   }
 
   static ClassName rawType(TypeName typeName) {
+    if (typeName instanceof TypeVariableName) {
+      return TypeName.OBJECT;
+    }
+    if (typeName.getClass().equals(TypeName.class)) {
+      return TypeName.OBJECT;
+    }
     if (typeName instanceof ParameterizedTypeName) {
       return ((ParameterizedTypeName) typeName).rawType;
     }
