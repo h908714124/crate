@@ -3,7 +3,6 @@ package net.crate.compiler;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -53,5 +52,9 @@ final class Optionalish {
 
   boolean isOptional() {
     return wrapper.equals(OPTIONAL_CLASS);
+  }
+
+  String ofLiteral() {
+    return isOptional() ? "ofNullable" : "of";
   }
 }

@@ -80,9 +80,12 @@ public final class CrateProcessor extends AbstractProcessor {
       if (sourceClassElement.getAnnotation(AutoCrate.class) != null) {
         throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
       }
-      Model model = Model.create(sourceClassElement, cratePeer(sourceClassElement));
-      TypeSpec typeSpec = Analyser.create(model).analyse();
-      write(rawType(model.generatedClass), typeSpec);
+      ClassName generatedClass = cratePeer(sourceClassElement);
+      TypeSpec typeSpec = Model.create(
+          sourceClassElement, sourceClassElement, generatedClass)
+          .map(model -> Analyser.create(model).analyse())
+          .orElse(Analyser.stub(generatedClass).build());
+      write(rawType(generatedClass), typeSpec);
       done.add(key);
     }
   }
@@ -94,7 +97,7 @@ public final class CrateProcessor extends AbstractProcessor {
     if (env.processingOver()) {
       for (TypeElement type : deferredTypes) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Could not find " + avPeer(type) +
+            "Could not find " + autoValuePeer(type) +
                 ", maybe auto-value is not configured?", type);
       }
       return;
@@ -115,17 +118,21 @@ public final class CrateProcessor extends AbstractProcessor {
       if (sourceClassElement.getAnnotation(Crate.class) != null) {
         throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
       }
-      TypeElement avType = processingEnv.getElementUtils().getTypeElement(
-          avPeer(sourceClassElement).toString());
-      if (avType == null) {
+      TypeElement targetClassElement = processingEnv.getElementUtils().getTypeElement(
+          autoValuePeer(sourceClassElement).toString());
+      if (targetClassElement == null) {
         // Auto-value hasn't written its class yet.
-        // Remember this, so we can notify the user later on.
+        // Remember this, so we can throw an error
+        // if it's still missing in the last round.
         deferredTypeNames.add(sourceClassElement.getQualifiedName().toString());
         continue;
       }
-      Model model = Model.create(avType, cratePeer(sourceClassElement));
-      TypeSpec typeSpec = Analyser.create(model).analyse();
-      write(rawType(model.generatedClass), typeSpec);
+      ClassName generatedClass = cratePeer(sourceClassElement);
+      TypeSpec typeSpec = Model.create(
+          sourceClassElement, targetClassElement, generatedClass)
+          .map(model -> Analyser.create(model).analyse())
+          .orElse(Analyser.stub(generatedClass).build());
+      write(rawType(generatedClass), typeSpec);
       done.add(key);
     }
   }
@@ -142,7 +149,7 @@ public final class CrateProcessor extends AbstractProcessor {
     }
   }
 
-  private static ClassName avPeer(TypeElement typeElement) {
+  private static ClassName autoValuePeer(TypeElement typeElement) {
     TypeName type = TypeName.get(typeElement.asType());
     String name = AV_PREFIX + String.join("_", rawType(type).simpleNames());
     return rawType(type).topLevelClassName().peerClass(name);

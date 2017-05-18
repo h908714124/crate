@@ -1,10 +1,5 @@
 package net.crate.compiler;
 
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.TypeVariableName;
-
-import java.util.List;
-
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -14,22 +9,21 @@ import static net.crate.compiler.CrateProcessor.rawType;
 import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
 
+import com.squareup.javapoet.MethodSpec;
+import java.util.List;
+
 final class ImplFields {
 
   private final Model model;
-  private final List<List<TypeVariableName>> typeParams;
 
   private ImplFields(
-      Model model,
-      List<List<TypeVariableName>> typeParams) {
+      Model model) {
     this.model = model;
-    this.typeParams = typeParams;
   }
 
   static ImplFields create(
-      Model model,
-      List<List<TypeVariableName>> typeParams) {
-    return new ImplFields(model, typeParams);
+      Model model) {
+    return new ImplFields(model);
   }
 
   List<MethodSpec> fields(int i) {
@@ -46,14 +40,14 @@ final class ImplFields {
         .returns(parameterizedTypeName(
             rawType(model.generatedClass)
                 .nestedClass(returnType),
-            typeParams.get(i - 2)))
+            model.varLife.typeParams.get(i - 2)))
         .addModifiers(ABSTRACT)
         .addModifiers(model.maybePublic())
         .build();
   }
 
   private MethodSpec data(int i) {
-    return methodBuilder("data")
+    return methodBuilder("get")
         .returns(model.properties.get(i - 1).type())
         .addModifiers(ABSTRACT)
         .addModifiers(model.maybePublic())

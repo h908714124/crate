@@ -5,12 +5,11 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
 import static net.crate.compiler.CrateProcessor.rawType;
-import static net.crate.compiler.GenericsContract.stepTypes;
 
 import com.squareup.javapoet.AnnotationSpec;
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
-import com.squareup.javapoet.TypeVariableName;
 import java.util.List;
 import javax.annotation.Generated;
 
@@ -26,18 +25,21 @@ final class Analyser {
     return new Analyser(model);
   }
 
-  TypeSpec analyse() {
+  static TypeSpec.Builder stub(ClassName generatedClass) {
     TypeSpec.Builder builder = TypeSpec.classBuilder(
-        rawType(model.generatedClass));
-    builder.addModifiers(model.maybePublic())
-        .addModifiers(FINAL)
-        .addModifiers(model.maybePublic())
+        rawType(generatedClass));
+    return builder.addModifiers(FINAL)
         .addMethod(constructorBuilder().addModifiers(PRIVATE).build())
         .addAnnotation(AnnotationSpec.builder(Generated.class)
             .addMember("value", "$S",
                 CrateProcessor.class.getCanonicalName())
-            .build());
-    builder.addMethod(staticBuilderMethod());
+            .build())
+        .addMethod(staticBuilderMethod(generatedClass));
+  }
+
+  TypeSpec analyse() {
+    TypeSpec.Builder builder = stub(model.generatedClass);
+    builder.addModifiers(model.maybePublic());
     if (model.properties.isEmpty()) {
       return builder.build();
     }
@@ -50,20 +52,16 @@ final class Analyser {
     return builder.build();
   }
 
-  private MethodSpec staticBuilderMethod() {
+  private static MethodSpec staticBuilderMethod(ClassName generatedClass) {
     return MethodSpec.methodBuilder("builder")
-        .addStatement("return new $T()", model.generatedClass)
-        .returns(model.generatedClass)
+        .addStatement("return new $T()", generatedClass)
+        .returns(generatedClass)
         .addModifiers(STATIC)
         .build();
   }
 
   private static List<StepDef> steps(Model model) {
-    List<TypeVariableName> typeParameters = model.typevars();
-    VarLife varLife = VarLife.create(
-        typeParameters,
-        stepTypes(model));
     GenericsImpl genericsImpl = new GenericsImpl(model);
-    return genericsImpl.stepImpls(varLife);
+    return genericsImpl.stepImpls();
   }
 }

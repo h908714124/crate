@@ -1,14 +1,13 @@
 package net.crate.compiler;
 
-import net.crate.Crate;
-
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
-import java.util.List;
-import java.util.stream.Collectors;
+import net.crate.Crate;
 
 final class TypeScanner {
 
