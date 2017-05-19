@@ -1,5 +1,7 @@
 package net.crate.compiler;
 
+import static net.crate.compiler.LessTypes.asType;
+
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
@@ -7,7 +9,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
-import net.crate.Crate;
 
 final class TypeScanner {
 
@@ -51,14 +52,18 @@ final class TypeScanner {
       throw new ValidationException("No non-private constructor found", sourceClassElement);
     }
     constructors = constructors.stream()
-        .filter(constructor -> constructor.getAnnotation(Crate.Constructor.class) != null)
+        .filter(constructor ->
+            constructor.getAnnotationMirrors().stream().anyMatch(mirror ->
+                asType(mirror.getAnnotationType().asElement())
+                    .getQualifiedName().toString()
+                    .endsWith(".Constructor")))
         .collect(Collectors.toList());
     if (constructors.isEmpty()) {
       throw new ValidationException("Use @Crate.Constructor " +
-          "to mark a constructor", sourceClassElement);
+          "to tag a constructor", sourceClassElement);
     }
     if (constructors.size() > 1) {
-      throw new ValidationException("Only one @Crate.Constructor " +
+      throw new ValidationException("Only one @Constructor " +
           "annotation is allowed per class", sourceClassElement);
     }
     return constructors.get(0);
