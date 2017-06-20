@@ -5,6 +5,9 @@ import static java.util.Collections.emptyList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.STATIC;
+import static net.crate.compiler.ConvenienceNext.nextStepType;
+import static net.crate.compiler.ParaParameter.GET_PROPERTY;
+import static net.crate.compiler.ParaParameter.asBiFunction;
 import static net.crate.compiler.Util.joinCodeBlocks;
 import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
@@ -17,6 +20,8 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import javax.lang.model.element.Modifier;
 
@@ -28,15 +33,21 @@ final class GenericsImpl {
   private static final Modifier[] ONLY_FINAL = {FINAL};
 
   private final Model model;
+  private final List<ParaParameter> properties;
 
-  GenericsImpl(Model model) {
+  GenericsImpl(
+      Model model,
+      List<ParaParameter> properties) {
     this.model = model;
+    this.properties = properties;
+    this.convenienceNext =
+        asBiFunction(new ConvenienceNext(model, properties));
   }
 
   List<StepDef> stepImpls() {
-    List<StepDef> builder = new ArrayList<>(model.properties.size());
-    ImplFields implFields = ImplFields.create(model);
-    for (int i = 0; i < model.properties.size(); i++) {
+    List<StepDef> builder = new ArrayList<>(properties.size());
+    ImplFields implFields = ImplFields.create(model, properties);
+    for (int i = 0; i < properties.size(); i++) {
       builder.add(stepDef(implFields, i));
     }
     return builder;
@@ -48,12 +59,10 @@ final class GenericsImpl {
     List<MethodSpec> fields = implFields.fields(i);
     List<MethodSpec> nextMethods = new ArrayList<>(2);
     nextMethods.add(nextMethod(i));
-    model.properties.get(i).optionalish()
-        .ifPresent(optionalish -> nextMethods.add(
-            convenienceNextMethod(i, optionalish))
-        );
+    convenienceNext.apply(properties.get(i), i)
+        .ifPresent(nextMethods::add);
     TypeSpec typeSpec = i == 0 ? null : TypeSpec.classBuilder(
-        upcase(model.properties.get(i - 1).name()))
+        upcase(get(i - 1).name()))
         .addMethods(fields)
         .addTypeVariables(model.varLife.typeParams.get(i - 1))
         .addMethods(nextMethods)
@@ -66,57 +75,31 @@ final class GenericsImpl {
 
   private MethodSpec nextMethod(int i) {
     ParameterSpec parameter = ParameterSpec.builder(
-        model.properties.get(i).type(),
-        model.properties.get(i).name()).build();
+        get(i).type(),
+        get(i).name()).build();
     return methodBuilder(
-        model.properties.get(i).name())
+        get(i).name())
         .addParameter(parameter)
         .addTypeVariables(model.varLife.methodParams.get(i))
         .addModifiers(model.maybePublic())
-        .returns(nextStepType(i))
+        .returns(nextStepType(model, properties, i))
         .addCode(nextBlock(i, parameter))
         .addModifiers(maybeFinal(i))
-        .addExceptions(i == model.properties.size() - 1 ?
+        .addExceptions(i == properties.size() - 1 ?
             model.thrownTypes :
             emptyList())
         .build();
   }
 
-  private MethodSpec convenienceNextMethod(
-      int i, Optionalish optionalish) {
-    ParameterSpec parameter = ParameterSpec.builder(
-        optionalish.wrapped,
-        model.properties.get(i).name()).build();
-    return methodBuilder(
-        model.properties.get(i).name())
-        .addParameter(parameter)
-        .addTypeVariables(model.varLife.methodParams.get(i))
-        .addModifiers(model.maybePublic())
-        .returns(nextStepType(i))
-        .addCode(convenienceNextBlock(i, parameter, optionalish))
-        .addExceptions(i == model.properties.size() - 1 ?
-            model.thrownTypes :
-            emptyList())
-        .build();
-  }
-
-  private TypeName nextStepType(int i) {
-    if (i == model.properties.size() - 1) {
-      return model.sourceClass();
-    }
-    ClassName rawNext = model.generatedClass
-        .nestedClass(upcase(
-            model.properties.get(i).name()));
-    return parameterizedTypeName(rawNext, model.varLife.typeParams.get(i));
-  }
+  private final BiFunction<ParaParameter, Integer, Optional<MethodSpec>> convenienceNext;
 
   private CodeBlock nextBlock(int i, ParameterSpec parameter) {
-    if (i == model.properties.size() - 1) {
+    if (i == properties.size() - 1) {
       return constructorInvocation();
     }
     TypeName next = parameterizedTypeName(model.generatedClass.peerClass(
         "AutoValue_" + model.generatedClass.simpleName() + "_" +
-            upcase(model.properties.get(i).name())),
+            upcase(get(i).name())),
         model.varLife.typeParams.get(i));
     return i == 0 ?
         CodeBlock.builder()
@@ -127,40 +110,8 @@ final class GenericsImpl {
             .build();
   }
 
-  private CodeBlock convenienceNextBlock(
-      int i, ParameterSpec parameter, Optionalish optionalish) {
-    if (i == model.properties.size() - 1) {
-      return CodeBlock.builder()
-          .addStatement("return $L($T.$L($N))",
-              model.properties.get(i).name(),
-              optionalish.wrapper,
-              optionalish.ofLiteral(),
-              parameter)
-          .build();
-    }
-    TypeName next = parameterizedTypeName(model.generatedClass.peerClass(
-        "AutoValue_" + model.generatedClass.simpleName() + "_" +
-            upcase(model.properties.get(i).name())),
-        model.varLife.typeParams.get(i));
-    return i == 0 ?
-        CodeBlock.builder()
-            .addStatement("return new $T($T.$L($N))",
-                next,
-                optionalish.wrapper,
-                optionalish.ofLiteral(),
-                parameter)
-            .build() :
-        CodeBlock.builder()
-            .addStatement("return new $T(this, $T.$L($N))",
-                next,
-                optionalish.wrapper,
-                optionalish.ofLiteral(),
-                parameter)
-            .build();
-  }
-
   private CodeBlock constructorInvocation() {
-    CodeBlock invoke = IntStream.range(0, model.properties.size())
+    CodeBlock invoke = IntStream.range(0, properties.size())
         .mapToObj(this::invokeFn)
         .collect(joinCodeBlocks(",\n"));
     return CodeBlock.builder().addStatement(
@@ -170,16 +121,20 @@ final class GenericsImpl {
 
   private CodeBlock invokeFn(int i) {
     CodeBlock.Builder block = CodeBlock.builder();
-    if (i == model.properties.size() - 1) {
-      String name = model.properties.get(i).name();
+    if (i == properties.size() - 1) {
+      String name = get(i).name();
       block.add("$L", name);
       return block.build();
     }
-    for (int j = model.properties.size() - 3; j >= i; j--) {
+    for (int j = properties.size() - 3; j >= i; j--) {
       block.add("$L().", "ref");
     }
     block.add("$L()", "get");
     return block.build();
+  }
+
+  private Property get(int i) {
+    return GET_PROPERTY.apply(properties.get(i));
   }
 
   private Modifier[] maybeFinal(int i) {

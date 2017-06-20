@@ -5,9 +5,6 @@ import net.crate.Crate;
 @Crate
 class Animal {
 
-  private static final Animal_Crate BUILDER =
-      Animal_Crate.builder();
-
   final String name;
   final boolean good;
 
@@ -22,6 +19,6 @@ class Animal {
   }
 
   static Animal_Crate builder() {
-    return BUILDER;
+    return Animal_Crate.builder();
   }
 }

@@ -1,5 +1,7 @@
 package net.crate.compiler;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static net.crate.compiler.Util.references;
 import static net.crate.compiler.Util.reverse;
 
@@ -30,8 +32,15 @@ final class VarLife {
   static VarLife create(
       List<TypeVariableName> typeParameters,
       List<TypeName> steps) {
-    if (steps.size() <= 1) {
-      throw new AssertionError();
+    if (steps.size() == 0) {
+      return new VarLife(
+          emptyList(),
+          emptyList());
+    }
+    if (steps.size() == 1) {
+      return new VarLife(
+          singletonList(emptyList()),
+          singletonList(emptyList()));
     }
     return new VarLife(
         typeParams(steps, typeParameters),

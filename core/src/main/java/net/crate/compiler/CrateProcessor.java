@@ -1,21 +1,15 @@
 package net.crate.compiler;
 
+import static java.util.stream.Collectors.toList;
+import static javax.lang.model.util.ElementFilter.typesIn;
+import static javax.tools.Diagnostic.Kind.ERROR;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-import net.crate.AutoCrate;
-import net.crate.Crate;
-
-import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.RoundEnvironment;
-import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
-import javax.tools.Diagnostic;
-import javax.tools.JavaFileObject;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -24,12 +18,16 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
-import static javax.lang.model.util.ElementFilter.typesIn;
-import static javax.tools.Diagnostic.Kind.ERROR;
+import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
+import net.crate.AutoCrate;
+import net.crate.Crate;
 
 public final class CrateProcessor extends AbstractProcessor {
 
@@ -81,10 +79,10 @@ public final class CrateProcessor extends AbstractProcessor {
         throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
       }
       ClassName generatedClass = cratePeer(sourceClassElement);
-      TypeSpec typeSpec = Model.create(
-          sourceClassElement, sourceClassElement, generatedClass)
-          .map(model -> Analyser.create(model).analyse())
-          .orElse(Analyser.stub(generatedClass).build());
+      TypeScanner typeScanner = Model.create(
+          sourceClassElement, sourceClassElement, generatedClass);
+      Analyser analyser = Analyser.create(typeScanner);
+      TypeSpec typeSpec = analyser.analyse();
       write(rawType(generatedClass), typeSpec);
       done.add(key);
     }
@@ -95,18 +93,16 @@ public final class CrateProcessor extends AbstractProcessor {
         .map(name -> processingEnv.getElementUtils().getTypeElement(name))
         .collect(toList());
     if (env.processingOver()) {
-      for (TypeElement type : deferredTypes) {
+      for (String type : deferredTypeNames) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Could not find " + autoValuePeer(type) +
-                ", maybe auto-value is not configured?", type);
+            "Could not find auto-value impl of " + type);
       }
       return;
     }
     List<TypeElement> types = Stream.of(
         deferredTypes,
         typesIn(env.getElementsAnnotatedWith(AutoCrate.class)))
-        .map(Collection::stream)
-        .flatMap(Function.identity())
+        .flatMap(Collection::stream)
         .collect(toList());
     deferredTypeNames.clear();
 
@@ -122,16 +118,14 @@ public final class CrateProcessor extends AbstractProcessor {
           autoValuePeer(sourceClassElement).toString());
       if (targetClassElement == null) {
         // Auto-value hasn't written its class yet.
-        // Remember this, so we can throw an error
-        // if it's still missing in the last round.
         deferredTypeNames.add(sourceClassElement.getQualifiedName().toString());
         continue;
       }
       ClassName generatedClass = cratePeer(sourceClassElement);
-      TypeSpec typeSpec = Model.create(
-          sourceClassElement, targetClassElement, generatedClass)
-          .map(model -> Analyser.create(model).analyse())
-          .orElse(Analyser.stub(generatedClass).build());
+      TypeScanner typeScanner = Model.create(
+          sourceClassElement, targetClassElement, generatedClass);
+      Analyser analyser = Analyser.create(typeScanner);
+      TypeSpec typeSpec = analyser.analyse();
       write(rawType(generatedClass), typeSpec);
       done.add(key);
     }
