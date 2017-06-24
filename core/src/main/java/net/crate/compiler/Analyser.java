@@ -1,11 +1,5 @@
 package net.crate.compiler;
 
-import static com.squareup.javapoet.MethodSpec.constructorBuilder;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.PRIVATE;
-import static javax.lang.model.element.Modifier.STATIC;
-import static net.crate.compiler.CrateProcessor.rawType;
-
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -13,6 +7,13 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.Generated;
+import net.crate.compiler.GenericsImpl.StepDefs;
+
+import static com.squareup.javapoet.MethodSpec.constructorBuilder;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
+import static javax.lang.model.element.Modifier.STATIC;
+import static net.crate.compiler.CrateProcessor.rawType;
 
 final class Analyser {
 
@@ -48,10 +49,9 @@ final class Analyser {
     if (properties.isEmpty()) {
       return builder.build();
     }
-    List<StepDef> stepDefs = steps(model, properties);
-    builder.addMethods(stepDefs.get(0).nextMethods());
-    stepDefs.stream().skip(1).map(StepDef::typeSpec)
-        .forEach(builder::addType);
+    StepDefs stepDefs = steps(model, properties);
+    builder.addMethods(stepDefs.initMethods);
+    builder.addTypes(stepDefs.steps);
     return builder.build();
   }
 
@@ -70,11 +70,10 @@ final class Analyser {
         .build();
   }
 
-  private static List<StepDef> steps(
+  private static StepDefs steps(
       Model model,
       List<ParaParameter> properties) {
-    GenericsImpl genericsImpl = new GenericsImpl(model, properties);
-    return genericsImpl.stepImpls();
+    return GenericsImpl.stepImpls(model, properties);
   }
 
   private AnnotationSpec generatedAnnotation() {

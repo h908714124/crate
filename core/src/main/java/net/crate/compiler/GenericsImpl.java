@@ -1,17 +1,5 @@
 package net.crate.compiler;
 
-import static com.squareup.javapoet.MethodSpec.methodBuilder;
-import static java.util.Collections.emptyList;
-import static javax.lang.model.element.Modifier.ABSTRACT;
-import static javax.lang.model.element.Modifier.FINAL;
-import static javax.lang.model.element.Modifier.STATIC;
-import static net.crate.compiler.ConvenienceNext.nextStepType;
-import static net.crate.compiler.ParaParameter.GET_PROPERTY;
-import static net.crate.compiler.ParaParameter.asBiFunction;
-import static net.crate.compiler.Util.joinCodeBlocks;
-import static net.crate.compiler.Util.parameterizedTypeName;
-import static net.crate.compiler.Util.upcase;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -25,6 +13,18 @@ import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import javax.lang.model.element.Modifier;
 
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static java.util.Collections.emptyList;
+import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.STATIC;
+import static net.crate.compiler.ConvenienceNext.nextStepType;
+import static net.crate.compiler.ParaParameter.GET_PROPERTY;
+import static net.crate.compiler.ParaParameter.asBiFunction;
+import static net.crate.compiler.Util.joinCodeBlocks;
+import static net.crate.compiler.Util.parameterizedTypeName;
+import static net.crate.compiler.Util.upcase;
+
 final class GenericsImpl {
 
   private static final ClassName AUTO_VALUE = ClassName.get(
@@ -35,7 +35,7 @@ final class GenericsImpl {
   private final Model model;
   private final List<ParaParameter> properties;
 
-  GenericsImpl(
+  private GenericsImpl(
       Model model,
       List<ParaParameter> properties) {
     this.model = model;
@@ -44,33 +44,43 @@ final class GenericsImpl {
         asBiFunction(new ConvenienceNext(model, properties));
   }
 
-  List<StepDef> stepImpls() {
-    List<StepDef> builder = new ArrayList<>(properties.size());
+  private StepDefs stepImpls() {
+    List<TypeSpec> builder = new ArrayList<>(properties.size());
     ImplFields implFields = ImplFields.create(model, properties);
-    for (int i = 0; i < properties.size(); i++) {
+    for (int i = 1; i < properties.size(); i++) {
       builder.add(stepDef(implFields, i));
     }
-    return builder;
+    return new StepDefs(nextMethods(0), builder);
   }
 
-  private StepDef stepDef(
-      ImplFields implFields,
+  static StepDefs stepImpls(
+      Model model,
+      List<ParaParameter> properties) {
+    return new GenericsImpl(model, properties).stepImpls();
+  }
+
+  private List<MethodSpec> nextMethods(
       int i) {
-    List<MethodSpec> fields = implFields.fields(i);
     List<MethodSpec> nextMethods = new ArrayList<>(2);
     nextMethods.add(nextMethod(i));
     convenienceNext.apply(properties.get(i), i)
         .ifPresent(nextMethods::add);
-    TypeSpec typeSpec = i == 0 ? null : TypeSpec.classBuilder(
+    return nextMethods;
+  }
+
+  private TypeSpec stepDef(
+      ImplFields implFields,
+      int i) {
+    List<MethodSpec> fields = implFields.fields(i);
+    return TypeSpec.classBuilder(
         upcase(get(i - 1).name()))
         .addMethods(fields)
         .addTypeVariables(model.varLife.typeParams.get(i - 1))
-        .addMethods(nextMethods)
+        .addMethods(nextMethods(i))
         .addAnnotation(AUTO_VALUE)
         .addModifiers(ABSTRACT, STATIC)
         .addModifiers(model.maybePublic())
         .build();
-    return new StepDef(typeSpec, nextMethods);
   }
 
   private MethodSpec nextMethod(int i) {
@@ -131,6 +141,15 @@ final class GenericsImpl {
     }
     block.add("$L()", "get");
     return block.build();
+  }
+
+  static final class StepDefs {
+    final List<MethodSpec> initMethods;
+    final List<TypeSpec> steps;
+    private StepDefs(List<MethodSpec> initMethods, List<TypeSpec> steps) {
+      this.initMethods = initMethods;
+      this.steps = steps;
+    }
   }
 
   private Property get(int i) {
