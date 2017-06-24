@@ -1,9 +1,7 @@
 ## crate
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.h908714124/crate/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.h908714124/crate)
-
-When an object is constructed via crate, then each step of the generated builder is a separate object.
-This step object is immutable and represents one of the constructor parameters, including all preceding parameters.
+Crate generates a variant of the builder pattern, where each constructor parameter is represented by a separate object.
+Each of these "step" objects is fully immutable and represents a partial invocation of the constructor.
 
 #### Basic example
 
@@ -77,6 +75,8 @@ abstract class Animal {
 ````
 
 #### Maven Dependency
+
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.h908714124/crate/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.h908714124/crate)
 
 ````xml
 <dependency>
