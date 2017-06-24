@@ -1,6 +1,5 @@
 package net.crate.compiler;
 
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
@@ -11,11 +10,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
-import javax.lang.model.element.Modifier;
 
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static java.util.Collections.emptyList;
-import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.STATIC;
 import static net.crate.compiler.ConvenienceNext.nextStepType;
@@ -26,11 +23,6 @@ import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
 
 final class GenericsImpl {
-
-  private static final ClassName AUTO_VALUE = ClassName.get(
-      "com.google.auto.value", "AutoValue");
-  private static final Modifier[] NO_MODIFIERS = new Modifier[0];
-  private static final Modifier[] ONLY_FINAL = {FINAL};
 
   private final Model model;
   private final List<ParaParameter> properties;
@@ -71,14 +63,13 @@ final class GenericsImpl {
   private TypeSpec stepDef(
       ImplFields implFields,
       int i) {
-    List<MethodSpec> fields = implFields.fields(i);
     return TypeSpec.classBuilder(
         upcase(get(i - 1).name()))
-        .addMethods(fields)
+        .addFields(implFields.fields(i))
         .addTypeVariables(model.varLife.typeParams.get(i - 1))
         .addMethods(nextMethods(i))
-        .addAnnotation(AUTO_VALUE)
-        .addModifiers(ABSTRACT, STATIC)
+        .addMethod(implFields.constructor(i))
+        .addModifiers(STATIC, FINAL)
         .addModifiers(model.maybePublic())
         .build();
   }
@@ -94,7 +85,6 @@ final class GenericsImpl {
         .addModifiers(model.maybePublic())
         .returns(nextStepType(model, properties, i))
         .addCode(nextBlock(i, parameter))
-        .addModifiers(maybeFinal(i))
         .addExceptions(i == properties.size() - 1 ?
             model.thrownTypes :
             emptyList())
@@ -107,9 +97,8 @@ final class GenericsImpl {
     if (i == properties.size() - 1) {
       return constructorInvocation();
     }
-    TypeName next = parameterizedTypeName(model.generatedClass.peerClass(
-        "AutoValue_" + model.generatedClass.simpleName() + "_" +
-            upcase(get(i).name())),
+    TypeName next = parameterizedTypeName(model.generatedClass.nestedClass(
+        upcase(get(i).name())),
         model.varLife.typeParams.get(i));
     return i == 0 ?
         CodeBlock.builder()
@@ -121,11 +110,15 @@ final class GenericsImpl {
   }
 
   private CodeBlock constructorInvocation() {
+    boolean fewParameters = properties.size() < 3;
     CodeBlock invoke = IntStream.range(0, properties.size())
         .mapToObj(this::invokeFn)
-        .collect(joinCodeBlocks(",\n"));
+        .collect(fewParameters ?
+            joinCodeBlocks(", ") :
+            joinCodeBlocks(",\n"));
+    String lineBreak = fewParameters ? "" : "\n";
     return CodeBlock.builder().addStatement(
-        "return new $T(\n$L)", model.targetClass, invoke)
+        "return new $T($L$L)", model.targetClass, lineBreak, invoke)
         .build();
   }
 
@@ -137,9 +130,9 @@ final class GenericsImpl {
       return block.build();
     }
     for (int j = properties.size() - 3; j >= i; j--) {
-      block.add("$L().", "ref");
+      block.add("up.");
     }
-    block.add("$L()", "get");
+    block.add(get(i).name());
     return block.build();
   }
 
@@ -154,9 +147,5 @@ final class GenericsImpl {
 
   private Property get(int i) {
     return GET_PROPERTY.apply(properties.get(i));
-  }
-
-  private Modifier[] maybeFinal(int i) {
-    return i == 0 ? NO_MODIFIERS : ONLY_FINAL;
   }
 }

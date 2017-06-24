@@ -15,4 +15,11 @@ public class AnimalTest {
     assertThat(spiderPig.name, is("Spider-Pig"));
     assertThat(spiderPig.good, is(false));
   }
+
+  @Test
+  public void testStep() throws Exception {
+    Animal_Crate.Name name = Animal.builder()
+        .name("Spider-Pig");
+    assertThat(name.name, is("Spider-Pig"));
+  }
 }

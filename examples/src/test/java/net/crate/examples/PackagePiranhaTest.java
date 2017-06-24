@@ -31,7 +31,7 @@ public class PackagePiranhaTest {
         PackagePiranha_Crate.Foo.class.getModifiers());
     assertThat(classModifiers, not(containsString("public")));
     String getMethodModifiers = Modifier.toString(
-        PackagePiranha_Crate.Foo.class.getDeclaredMethod("get").getModifiers());
+        PackagePiranha_Crate.Foo.class.getDeclaredField("foo").getModifiers());
     assertThat(getMethodModifiers, not(containsString("public")));
     String stepMethodModifiers = Modifier.toString(
         PackagePiranha_Crate.Foo.class.getDeclaredMethod("bar", String.class)

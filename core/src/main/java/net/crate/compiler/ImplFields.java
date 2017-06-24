@@ -1,17 +1,20 @@
 package net.crate.compiler;
 
-import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.TypeName;
+import java.util.List;
+
+import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static javax.lang.model.element.Modifier.ABSTRACT;
+import static javax.lang.model.element.Modifier.FINAL;
 import static net.crate.compiler.CrateProcessor.rawType;
 import static net.crate.compiler.ParaParameter.GET_PROPERTY;
 import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
-
-import com.squareup.javapoet.MethodSpec;
-import java.util.List;
 
 final class ImplFields {
 
@@ -31,33 +34,47 @@ final class ImplFields {
     return new ImplFields(model, properties);
   }
 
-  List<MethodSpec> fields(int i) {
+  List<FieldSpec> fields(int i) {
     if (i == 0) {
       return emptyList();
     }
     if (i == 1) {
-      return singletonList(data(i));
+      return singletonList(dataField(i));
     }
-    return asList(ref(i), data(i));
+    return asList(upField(i), dataField(i));
   }
 
-  private MethodSpec ref(int i) {
-    String returnType = upcase(get(i - 2).name());
-    return methodBuilder("ref")
-        .returns(parameterizedTypeName(
-            rawType(model.generatedClass)
-                .nestedClass(returnType),
-            model.varLife.typeParams.get(i - 2)))
-        .addModifiers(ABSTRACT)
-        .addModifiers(model.maybePublic())
+  MethodSpec constructor(int i) {
+    MethodSpec.Builder builder = constructorBuilder();
+    List<FieldSpec> fields = fields(i);
+    for (FieldSpec field : fields) {
+      ParameterSpec p = ParameterSpec.builder(field.type, field.name).build();
+      builder.addStatement("this.$N = $N", field, p);
+      builder.addParameter(p);
+    }
+    return builder.addModifiers(model.maybePublic())
         .build();
   }
 
-  private MethodSpec data(int i) {
-    return methodBuilder("get")
-        .returns(get(i - 1).type())
-        .addModifiers(ABSTRACT)
+  private FieldSpec upField(int i) {
+    TypeName refType = upType(i);
+    return FieldSpec.builder(refType, "up")
         .addModifiers(model.maybePublic())
+        .addModifiers(FINAL)
+        .build();
+  }
+
+  private TypeName upType(int i) {
+    return parameterizedTypeName(
+        rawType(model.generatedClass)
+            .nestedClass(upcase(get(i - 2).name())),
+        model.varLife.typeParams.get(i - 2));
+  }
+
+  private FieldSpec dataField(int i) {
+    return FieldSpec.builder(get(i - 1).type(), get(i - 1).name())
+        .addModifiers(model.maybePublic())
+        .addModifiers(FINAL)
         .build();
   }
 

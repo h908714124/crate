@@ -1,12 +1,5 @@
 package net.crate.compiler;
 
-import static com.squareup.javapoet.MethodSpec.methodBuilder;
-import static java.util.Collections.emptyList;
-import static java.util.Optional.empty;
-import static net.crate.compiler.ParaParameter.GET_PROPERTY;
-import static net.crate.compiler.Util.parameterizedTypeName;
-import static net.crate.compiler.Util.upcase;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -14,6 +7,13 @@ import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
 import java.util.List;
 import java.util.Optional;
+
+import static com.squareup.javapoet.MethodSpec.methodBuilder;
+import static java.util.Collections.emptyList;
+import static java.util.Optional.empty;
+import static net.crate.compiler.ParaParameter.GET_PROPERTY;
+import static net.crate.compiler.Util.parameterizedTypeName;
+import static net.crate.compiler.Util.upcase;
 
 final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, Integer> {
 
@@ -80,9 +80,8 @@ final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, In
           .build();
     }
     TypeName next = parameterizedTypeName(
-        model.generatedClass.peerClass(
-            "AutoValue_" + model.generatedClass.simpleName() + "_" +
-                upcase(optionalish.property.name())),
+        model.generatedClass.nestedClass(
+            upcase(optionalish.property.name())),
         model.varLife.typeParams.get(i));
     if (i == 0) {
       return CodeBlock.builder()

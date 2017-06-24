@@ -1,11 +1,11 @@
 package net.crate.examples;
 
+import java.lang.reflect.Modifier;
+import org.junit.Test;
+
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertThat;
-
-import java.lang.reflect.Modifier;
-import org.junit.Test;
 
 public class PublicPenguinTest {
 
@@ -31,12 +31,11 @@ public class PublicPenguinTest {
         PublicPenguin_Crate.Foo.class.getModifiers());
     assertThat(classModifiers, containsString("public"));
     String getMethodModifiers = Modifier.toString(
-        PublicPenguin_Crate.Foo.class.getDeclaredMethod("get").getModifiers());
+        PublicPenguin_Crate.Foo.class.getDeclaredField("foo").getModifiers());
     assertThat(getMethodModifiers, containsString("public"));
     String stepMethodModifiers = Modifier.toString(
         PublicPenguin_Crate.Foo.class.getDeclaredMethod("bar", String.class)
             .getModifiers());
     assertThat(stepMethodModifiers, containsString("public"));
   }
-
 }

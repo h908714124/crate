@@ -1,14 +1,14 @@
 package net.crate.examples;
 
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
-
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import net.crate.examples.Spider.Ostrich;
 import org.junit.Test;
+
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
 
 public class SpiderTest {
 
@@ -40,5 +40,26 @@ public class SpiderTest {
     assertThat(ostrich.wings().size(), is(0));
     assertThat(ostrich.feet().map(Map::size).orElse(-1), is(0));
     assertThat(ostrich.toes().size(), is(0));
+  }
+
+  @Test
+  public void testSteps() {
+    Date utilDate = new Date();
+    java.sql.Date sqlDate = new java.sql.Date(utilDate.getTime());
+    Spider_Crate.Eyes<Date> eyes = Spider.builder()
+        .eyes(utilDate);
+    assertThat(eyes.eyes, is(utilDate));
+    Spider_Crate.Hair<Date> hair = eyes.hair(utilDate);
+    assertThat(hair.hair, is(Optional.of(utilDate)));
+    assertThat(hair.up.eyes, is(utilDate));
+    Spider_Crate.Legs<Date> legs = hair.legs(utilDate);
+    assertThat(legs.legs, is(utilDate));
+    assertThat(legs.up.hair, is(Optional.of(utilDate)));
+    assertThat(legs.up.up.eyes, is(utilDate));
+    Spider_Crate.Teeth<Date, java.sql.Date> teeth = legs.teeth(sqlDate);
+    assertThat(teeth.teeth, is(sqlDate));
+    assertThat(teeth.up.legs, is(utilDate));
+    assertThat(teeth.up.up.hair, is(Optional.of(utilDate)));
+    assertThat(teeth.up.up.up.eyes, is(utilDate));
   }
 }
