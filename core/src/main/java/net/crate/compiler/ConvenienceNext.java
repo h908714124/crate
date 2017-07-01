@@ -5,20 +5,32 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeSpec;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static java.util.Collections.emptyList;
-import static java.util.Optional.empty;
+import static java.util.Collections.singletonList;
 import static net.crate.compiler.ParaParameter.GET_PROPERTY;
+import static net.crate.compiler.Util.joinCodeBlocks;
 import static net.crate.compiler.Util.parameterizedTypeName;
 import static net.crate.compiler.Util.upcase;
 
-final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, Integer> {
+final class ConvenienceNext extends ParaParameter.Cases<ConvenienceNext.NextResult, Integer> {
 
   private final Model model;
   private final List<ParaParameter> properties;
+
+  static final class NextResult {
+    final List<MethodSpec> methods;
+    final List<TypeSpec> extraTypes;
+    NextResult(List<MethodSpec> methods, List<TypeSpec> extraTypes) {
+      this.methods = methods;
+      this.extraTypes = extraTypes;
+    }
+  }
 
   ConvenienceNext(Model model, List<ParaParameter> properties) {
     this.model = model;
@@ -26,17 +38,17 @@ final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, In
   }
 
   @Override
-  Optional<MethodSpec> property(Property property, Integer integer) {
-    return empty();
-  }
-  
-  @Override
-  Optional<MethodSpec> collectionish(Collectionish collectionish, Integer integer) {
-    return empty();
+  ConvenienceNext.NextResult property(Property property, Integer i) {
+    return new NextResult(singletonList(nextMethod(i)), emptyList());
   }
 
   @Override
-  Optional<MethodSpec> optionalish(Optionalish optionalish, Integer i) {
+  ConvenienceNext.NextResult collectionish(Collectionish collectionish, Integer i) {
+    return new NextResult(singletonList(nextMethod(i)), emptyList());
+  }
+
+  @Override
+  ConvenienceNext.NextResult optionalish(Optionalish optionalish, Integer i) {
     ParameterSpec parameter = ParameterSpec.builder(
         optionalish.wrapped,
         optionalish.property.name()).build();
@@ -52,14 +64,14 @@ final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, In
             emptyList())
         .build();
 
-    return Optional.of(methodSpec);
+    return new NextResult(Arrays.asList(nextMethod(i), methodSpec), emptyList());
   }
 
   private TypeName nextStepType(int i) {
     return nextStepType(model, properties, i);
   }
 
-  static TypeName nextStepType(
+  private static TypeName nextStepType(
       Model model,
       List<ParaParameter> properties,
       int i) {
@@ -106,4 +118,69 @@ final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, In
         .build();
   }
 
+  private MethodSpec nextMethod(int i) {
+    ParameterSpec parameter = ParameterSpec.builder(
+        get(i).type(),
+        get(i).name()).build();
+    return methodBuilder(
+        get(i).name())
+        .addParameter(parameter)
+        .addTypeVariables(model.varLife.methodParams.get(i))
+        .addModifiers(model.maybePublic())
+        .returns(nextStepType(model, properties, i))
+        .addCode(nextBlock(i, parameter))
+        .addExceptions(i == properties.size() - 1 ?
+            model.thrownTypes :
+            emptyList())
+        .build();
+  }
+
+  private CodeBlock nextBlock(int i, ParameterSpec parameter) {
+    if (i == properties.size() - 1) {
+      return constructorInvocation();
+    }
+    TypeName next = parameterizedTypeName(model.generatedClass.nestedClass(
+        upcase(get(i).name())),
+        model.varLife.typeParams.get(i));
+    return i == 0 ?
+        CodeBlock.builder()
+            .addStatement("return new $T($N)", next, parameter)
+            .build() :
+        CodeBlock.builder()
+            .addStatement("return new $T(this, $N)", next, parameter)
+            .build();
+  }
+
+
+  private CodeBlock constructorInvocation() {
+    boolean fewParameters = properties.size() < 3;
+    CodeBlock invoke = IntStream.range(0, properties.size())
+        .mapToObj(this::invokeFn)
+        .collect(fewParameters ?
+            joinCodeBlocks(", ") :
+            joinCodeBlocks(",\n"));
+    String lineBreak = fewParameters ? "" : "\n";
+    return CodeBlock.builder().addStatement(
+        "return new $T($L$L)", model.targetClass, lineBreak, invoke)
+        .build();
+  }
+
+
+  private CodeBlock invokeFn(int i) {
+    CodeBlock.Builder block = CodeBlock.builder();
+    if (i == properties.size() - 1) {
+      String name = get(i).name();
+      block.add("$L", name);
+      return block.build();
+    }
+    for (int j = properties.size() - 3; j >= i; j--) {
+      block.add("up.");
+    }
+    block.add(get(i).name());
+    return block.build();
+  }
+
+  private Property get(int i) {
+    return GET_PROPERTY.apply(properties.get(i));
+  }
 }

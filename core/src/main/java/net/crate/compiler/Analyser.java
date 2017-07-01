@@ -49,7 +49,8 @@ final class Analyser {
     if (properties.isEmpty()) {
       return builder.build();
     }
-    StepDefs stepDefs = steps(model, properties);
+    StepDefs stepDefs = GenericsImpl.stepImpls(model, properties);
+    builder.addTypes(stepDefs.initExtraTypes);
     builder.addMethods(stepDefs.initMethods);
     builder.addTypes(stepDefs.steps);
     return builder.build();
@@ -68,12 +69,6 @@ final class Analyser {
         .returns(model.generatedClass)
         .addModifiers(STATIC)
         .build();
-  }
-
-  private static StepDefs steps(
-      Model model,
-      List<ParaParameter> properties) {
-    return GenericsImpl.stepImpls(model, properties);
   }
 
   private AnnotationSpec generatedAnnotation() {

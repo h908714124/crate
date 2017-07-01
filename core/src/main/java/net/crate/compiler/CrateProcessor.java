@@ -1,9 +1,5 @@
 package net.crate.compiler;
 
-import static java.util.stream.Collectors.toList;
-import static javax.lang.model.util.ElementFilter.typesIn;
-import static javax.tools.Diagnostic.Kind.ERROR;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.ParameterizedTypeName;
@@ -29,6 +25,10 @@ import javax.tools.JavaFileObject;
 import net.crate.AutoCrate;
 import net.crate.Crate;
 
+import static java.util.stream.Collectors.toList;
+import static javax.lang.model.util.ElementFilter.typesIn;
+import static javax.tools.Diagnostic.Kind.ERROR;
+
 public final class CrateProcessor extends AbstractProcessor {
 
   private static final String AV_PREFIX = "AutoValue_";
@@ -53,42 +53,42 @@ public final class CrateProcessor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment env) {
-    try {
-      processCrates(env);
-      processAutoCrates(env);
-    } catch (ValidationException e) {
-      processingEnv.getMessager().printMessage(
-          ERROR, e.getMessage(), e.about);
-    } catch (Exception e) {
-      String trace = getStackTraceAsString(e);
-      String message = "Unexpected error: " + trace;
-      processingEnv.getMessager().printMessage(ERROR, message);
-    }
+    processCrates(env);
+    processAutoCrates(env);
     return false;
   }
 
-  private void processCrates(RoundEnvironment env) throws IOException {
+  private void processCrates(RoundEnvironment env) {
     Set<TypeElement> typeElements =
         typesIn(env.getElementsAnnotatedWith(Crate.class));
     for (TypeElement sourceClassElement : typeElements) {
-      String key = sourceClassElement.getQualifiedName().toString();
-      if (done.contains(key)) {
-        continue;
+      try {
+        String key = sourceClassElement.getQualifiedName().toString();
+        if (done.contains(key)) {
+          continue;
+        }
+        done.add(key);
+        if (sourceClassElement.getAnnotation(AutoCrate.class) != null) {
+          throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
+        }
+        ClassName generatedClass = cratePeer(sourceClassElement);
+        TypeScanner typeScanner = Model.create(
+            sourceClassElement, sourceClassElement, generatedClass);
+        Analyser analyser = Analyser.create(typeScanner);
+        TypeSpec typeSpec = analyser.analyse();
+        write(rawType(generatedClass), typeSpec);
+      } catch (ValidationException e) {
+        processingEnv.getMessager().printMessage(
+            ERROR, e.getMessage(), e.about);
+      } catch (Exception e) {
+        String trace = getStackTraceAsString(e);
+        String message = "Unexpected error: " + trace;
+        processingEnv.getMessager().printMessage(ERROR, message);
       }
-      if (sourceClassElement.getAnnotation(AutoCrate.class) != null) {
-        throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
-      }
-      ClassName generatedClass = cratePeer(sourceClassElement);
-      TypeScanner typeScanner = Model.create(
-          sourceClassElement, sourceClassElement, generatedClass);
-      Analyser analyser = Analyser.create(typeScanner);
-      TypeSpec typeSpec = analyser.analyse();
-      write(rawType(generatedClass), typeSpec);
-      done.add(key);
     }
   }
 
-  private void processAutoCrates(RoundEnvironment env) throws IOException {
+  private void processAutoCrates(RoundEnvironment env) {
     List<TypeElement> deferredTypes = deferredTypeNames.stream()
         .map(name -> processingEnv.getElementUtils().getTypeElement(name))
         .collect(toList());
@@ -107,27 +107,36 @@ public final class CrateProcessor extends AbstractProcessor {
     deferredTypeNames.clear();
 
     for (TypeElement sourceClassElement : types) {
-      String key = sourceClassElement.getQualifiedName().toString();
-      if (done.contains(key)) {
-        continue;
+      try {
+        String key = sourceClassElement.getQualifiedName().toString();
+        if (done.contains(key)) {
+          continue;
+        }
+        if (sourceClassElement.getAnnotation(Crate.class) != null) {
+          throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
+        }
+        TypeElement targetClassElement = processingEnv.getElementUtils().getTypeElement(
+            autoValuePeer(sourceClassElement).toString());
+        if (targetClassElement == null) {
+          // Auto-value hasn't written its class yet.
+          deferredTypeNames.add(sourceClassElement.getQualifiedName().toString());
+          continue;
+        }
+        done.add(key);
+        ClassName generatedClass = cratePeer(sourceClassElement);
+        TypeScanner typeScanner = Model.create(
+            sourceClassElement, targetClassElement, generatedClass);
+        Analyser analyser = Analyser.create(typeScanner);
+        TypeSpec typeSpec = analyser.analyse();
+        write(rawType(generatedClass), typeSpec);
+      } catch (ValidationException e) {
+        processingEnv.getMessager().printMessage(
+            ERROR, e.getMessage(), e.about);
+      } catch (Exception e) {
+        String trace = getStackTraceAsString(e);
+        String message = "Unexpected error: " + trace;
+        processingEnv.getMessager().printMessage(ERROR, message);
       }
-      if (sourceClassElement.getAnnotation(Crate.class) != null) {
-        throw new ValidationException(DOUBLE_ERROR, sourceClassElement);
-      }
-      TypeElement targetClassElement = processingEnv.getElementUtils().getTypeElement(
-          autoValuePeer(sourceClassElement).toString());
-      if (targetClassElement == null) {
-        // Auto-value hasn't written its class yet.
-        deferredTypeNames.add(sourceClassElement.getQualifiedName().toString());
-        continue;
-      }
-      ClassName generatedClass = cratePeer(sourceClassElement);
-      TypeScanner typeScanner = Model.create(
-          sourceClassElement, targetClassElement, generatedClass);
-      Analyser analyser = Analyser.create(typeScanner);
-      TypeSpec typeSpec = analyser.analyse();
-      write(rawType(generatedClass), typeSpec);
-      done.add(key);
     }
   }
 
