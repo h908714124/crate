@@ -302,4 +302,10 @@ final class Util {
     return (PackageElement) element;
   }
 
+  static TypeName withTypevars(ClassName className, TypeName[] typevars) {
+    if (typevars.length == 0) {
+      return className;
+    }
+    return ParameterizedTypeName.get(className, typevars);
+  }
 }

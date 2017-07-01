@@ -29,6 +29,11 @@ final class ConvenienceNext extends ParaParameter.Cases<Optional<MethodSpec>, In
   Optional<MethodSpec> property(Property property, Integer integer) {
     return empty();
   }
+  
+  @Override
+  Optional<MethodSpec> collectionish(Collectionish collectionish, Integer integer) {
+    return empty();
+  }
 
   @Override
   Optional<MethodSpec> optionalish(Optionalish optionalish, Integer i) {
